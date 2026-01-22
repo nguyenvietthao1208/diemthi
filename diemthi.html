@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Quản Lý Điểm</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 min-h-screen p-4 transition-colors duration-300" id="bodyTag">
+
+<div class="max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-800" id="titleText">📊 Dashboard Điểm Thi</h1>
+        <button onclick="toggleDarkMode()" class="p-2 bg-gray-200 dark:bg-gray-700 rounded-full">
+            <i class="fas fa-moon text-gray-600 dark:text-yellow-400"></i>
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-blue-500 text-white p-4 rounded-lg shadow">
+            <p class="text-sm opacity-80">Điểm Trung Bình</p>
+            <h2 class="text-3xl font-bold" id="gpaText">0.0</h2>
+        </div>
+        <div class="bg-green-500 text-white p-4 rounded-lg shadow">
+            <p class="text-sm opacity-80">Số Môn Đã Học</p>
+            <h2 class="text-3xl font-bold" id="totalSubjects">0</h2>
+        </div>
+        <div class="bg-purple-500 text-white p-4 rounded-lg shadow">
+            <p class="text-sm opacity-80">Xếp Loại</p>
+            <h2 class="text-3xl font-bold" id="rankText">--</h2>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-xl shadow-md mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input type="text" id="subject" placeholder="Tên môn học..." class="border p-2 rounded focus:ring-2 focus:ring-blue-400 outline-none">
+            <input type="number" id="score" placeholder="Điểm (0-10)..." step="0.1" class="border p-2 rounded focus:ring-2 focus:ring-blue-400 outline-none">
+            <button id="addBtn" class="bg-blue-600 text-white font-bold py-2 rounded hover:bg-blue-700 transition">
+                <i class="fas fa-plus mr-2"></i>Thêm Môn Học
+            </button>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="p-4 border-b bg-gray-50 flex items-center">
+            <i class="fas fa-search text-gray-400 mr-2"></i>
+            <input type="text" id="searchInput" placeholder="Tìm kiếm môn học..." class="bg-transparent w-full outline-none">
+        </div>
+        <table class="w-full text-left">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="p-4 font-semibold text-gray-700">Môn Học</th>
+                    <th class="p-4 font-semibold text-gray-700 text-center">Điểm Số</th>
+                    <th class="p-4 font-semibold text-gray-700 text-center">Đánh Giá</th>
+                    <th class="p-4 font-semibold text-gray-700 text-right">Thao Tác</th>
+                </tr>
+            </thead>
+            <tbody id="scoreTableBody" class="divide-y">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy } 
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCNqts1OVmRMJIxl3WBeuLMSVRJHa5RKuU",
+        authDomain: "nguyenvietthao-e6882.firebaseapp.com",
+        projectId: "nguyenvietthao-e6882",
+        storageBucket: "nguyenvietthao-e6882.firebasestorage.app",
+        messagingSenderId: "27718472540",
+        appId: "1:27718472540:web:2da8540137866f7e1f2799",
+        measurementId: "G-ZLK9QF3S0T"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const scoreCol = collection(db, 'scores');
+
+    // Thêm dữ liệu có sắp xếp thời gian
+    document.getElementById('addBtn').addEventListener('click', async () => {
+        const subject = document.getElementById('subject').value;
+        const score = document.getElementById('score').value;
+
+        if (subject && score) {
+            await addDoc(scoreCol, {
+                subject: subject,
+                score: parseFloat(score),
+                createdAt: Date.now()
+            });
+            document.getElementById('subject').value = '';
+            document.getElementById('score').value = '';
+        }
+    });
+
+    // Lắng nghe dữ liệu
+    onSnapshot(query(scoreCol, orderBy('createdAt', 'desc')), (snapshot) => {
+        const tableBody = document.getElementById('scoreTableBody');
+        let total = 0;
+        let count = 0;
+        tableBody.innerHTML = '';
+
+        snapshot.forEach((docData) => {
+            const data = docData.data();
+            const id = docData.id;
+            total += data.score;
+            count++;
+
+            const statusColor = data.score >= 5 ? 'text-green-600' : 'text-red-600';
+            const statusText = data.score >= 8 ? 'Giỏi' : (data.score >= 5 ? 'Đạt' : 'Yếu');
+
+            tableBody.innerHTML += `
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="p-4 font-medium">${data.subject}</td>
+                    <td class="p-4 text-center font-bold ${statusColor}">${data.score}</td>
+                    <td class="p-4 text-center"><span class="px-2 py-1 rounded text-xs bg-gray-100">${statusText}</span></td>
+                    <td class="p-4 text-right">
+                        <button onclick="deleteScore('${id}')" class="text-red-500 hover:text-red-700">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        // Cập nhật thống kê
+        const gpa = count > 0 ? (total / count).toFixed(2) : 0;
+        document.getElementById('gpaText').innerText = gpa;
+        document.getElementById('totalSubjects').innerText = count;
+        document.getElementById('rankText').innerText = getRank(gpa);
+    });
+
+    function getRank(gpa) {
+        if (gpa >= 8) return "Giỏi";
+        if (gpa >= 6.5) return "Khá";
+        if (gpa >= 5) return "TB";
+        return count > 0 ? "Yếu" : "--";
+    }
+
+    window.deleteScore = async (id) => {
+        if(confirm("Xóa môn học này?")) await deleteDoc(doc(db, 'scores', id));
+    };
+
+    // Tìm kiếm (Filter Client-side)
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('#scoreTableBody tr');
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(term) ? '' : 'none';
+        });
+    });
+</script>
+
+<script>
+    function toggleDarkMode() {
+        document.getElementById('bodyTag').classList.toggle('dark');
+        // Thêm logic đổi màu nền Dark Mode ở đây nếu muốn hoàn thiện hơn
+    }
+</script>
+</body>
+</html>
